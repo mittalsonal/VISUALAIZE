@@ -231,6 +231,21 @@ function EditorContent({ onBack }: EditorProps) {
     setCanRedo(indexRef.current < historyRef.current.length - 1);
   };
 
+  // --- COPY TO CLIPBOARD SYSTEM ---
+  const [copiedSummary, setCopiedSummary] = useState(false);
+  const [copiedLogic, setCopiedLogic] = useState(false);
+  const [copiedJson, setCopiedJson] = useState(false);
+
+  const copyToClipboard = useCallback(async (text: string, setCopiedState: (v: boolean) => void) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedState(true);
+      setTimeout(() => setCopiedState(false), 2000);
+    } catch (e) {
+      console.error("Failed to copy:", e);
+    }
+  }, []);
+
   const pushToHistory = useCallback((currentNodes: Node[], currentEdges: Edge[]) => {
     const history = historyRef.current.slice(0, indexRef.current + 1);
     
@@ -394,9 +409,27 @@ function EditorContent({ onBack }: EditorProps) {
       
       setIsSidebarOpen(true); 
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("🚨 [CRITICAL ERROR]:", err);
-      alert(`System Busy. Please check the console for the exact error.\n\nDetails: ${err}`);
+      let errMsg = err.message || '';
+      
+      try {
+        if (errMsg.includes("Server Error")) {
+          const jsonStart = errMsg.indexOf('{');
+          if (jsonStart !== -1) {
+            const errObj = JSON.parse(errMsg.substring(jsonStart));
+            if (errObj.detail) {
+              errMsg = errObj.detail;
+            }
+          }
+        }
+      } catch (e) {}
+
+      if (errMsg.includes("GEMINI_API_KEY") || errMsg.includes("Gemini") || errMsg.includes("API key") || errMsg.includes("AI Studio")) {
+        alert(`🔑 API KEY CONFIGURATION\n\n${errMsg}`);
+      } else {
+        alert(`System Busy. Please check the console for the exact error.\n\nDetails: ${errMsg}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -611,9 +644,18 @@ function EditorContent({ onBack }: EditorProps) {
                    <div className="flex items-center gap-2 mb-2 text-xs font-bold tracking-widest text-blue-600 dark:text-blue-500 uppercase"><Layers size={12} /> Analysis Complete</div>
                    <h2 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">{graphData.title}</h2>
                 </div>
-                <button onClick={handleExport} className="p-2 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer" title="Export Image">
-                    <Download size={18} />
-                </button>
+                <div className="flex gap-2">
+                     <button 
+                         onClick={() => copyToClipboard(JSON.stringify(graphData, null, 2), setCopiedJson)} 
+                         className="p-2 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer" 
+                         title="Copy Raw Graph JSON"
+                     >
+                         {copiedJson ? <Check size={18} className="text-emerald-500" /> : <Copy size={18} />}
+                     </button>
+                     <button onClick={handleExport} className="p-2 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer" title="Export Image">
+                         <Download size={18} />
+                     </button>
+                </div>
             </div>
 
             <div className="flex border-b border-slate-200 dark:border-white/10 min-w-[450px]">
@@ -626,11 +668,31 @@ function EditorContent({ onBack }: EditorProps) {
                 {activeTab === 'ANALYSIS' && (
                   <>
                     <div className="p-4 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
-                        <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-slate-800 dark:text-white"><Activity size={16} className="text-emerald-500 dark:text-emerald-400" /> Executive Summary</div>
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-white"><Activity size={16} className="text-emerald-500 dark:text-emerald-400" /> Executive Summary</div>
+                            <button 
+                                onClick={() => copyToClipboard(graphData.summary, setCopiedSummary)} 
+                                className="px-2 py-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/5 rounded transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold"
+                                title="Copy Summary"
+                            >
+                                {copiedSummary ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                                {copiedSummary ? 'COPIED' : 'COPY'}
+                            </button>
+                        </div>
                         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{graphData.summary}</p>
                     </div>
                     <div>
-                        <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/5 pb-2"><BookOpen size={16} className="text-purple-500 dark:text-purple-400" /> System Logic</div>
+                        <div className="flex justify-between items-center mb-4 border-b border-slate-200 dark:border-white/5 pb-2">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-white"><BookOpen size={16} className="text-purple-500 dark:text-purple-400" /> System Logic</div>
+                            <button 
+                                onClick={() => copyToClipboard(graphData.explanation, setCopiedLogic)} 
+                                className="px-2 py-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/5 rounded transition-all cursor-pointer flex items-center gap-1 text-[10px] font-bold"
+                                title="Copy Logic"
+                            >
+                                {copiedLogic ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                                {copiedLogic ? 'COPIED' : 'COPY'}
+                            </button>
+                        </div>
                         <div className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed space-y-4">{graphData.explanation}</div>
                     </div>
                     <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-black/40">

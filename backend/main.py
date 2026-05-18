@@ -95,6 +95,12 @@ class CodeRequest(BaseModel):
     language: str
 
 def get_smart_response(prompt_text, use_json=False):
+    if not GENAI_KEY or GENAI_KEY == "missing":
+        raise HTTPException(
+            status_code=401, 
+            detail="Please configure your GEMINI_API_KEY in the backend .env file."
+        )
+        
     last_error = None
     
     # Loop through the models we FOUND (not guessed)
@@ -116,7 +122,13 @@ def get_smart_response(prompt_text, use_json=False):
             return response.text
             
         except Exception as e:
+            err_str = str(e).lower()
             print(f"⚠️ {model_name} failed. Error: {e}")
+            if "api_key_invalid" in err_str or "api key" in err_str or "invalid api key" in err_str or "api key invalid" in err_str or "400" in err_str or "403" in err_str:
+                raise HTTPException(
+                    status_code=401, 
+                    detail="Your GEMINI_API_KEY is invalid. Please check your Google AI Studio credentials."
+                )
             last_error = e
             continue
             
@@ -128,8 +140,11 @@ def health_check():
 
 @app.post("/generate")
 async def generate_graph(request: GraphRequest):
-    if not GENAI_KEY:
-        raise HTTPException(status_code=500, detail="API Key missing on Render.")
+    if not GENAI_KEY or GENAI_KEY == "missing":
+        raise HTTPException(
+            status_code=401, 
+            detail="Please configure your GEMINI_API_KEY in the backend .env file."
+        )
 
     system_prompt = """
     You are a System Visualization AI. 
