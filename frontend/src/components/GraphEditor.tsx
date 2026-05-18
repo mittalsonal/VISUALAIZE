@@ -25,7 +25,9 @@ import {
   Share2, Terminal,
   Zap,
   Sun,
-  Moon
+  Moon,
+  Undo,
+  Redo
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
@@ -218,6 +220,121 @@ function EditorContent({ onBack }: EditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null); 
   const { getNodes } = useReactFlow(); 
 
+  // --- UNDO / REDO / HISTORY SAVE ---
+  const historyRef = useRef<{ nodes: Node[]; edges: Edge[] }[]>([]);
+  const indexRef = useRef<number>(-1);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const updateUndoRedoStates = () => {
+    setCanUndo(indexRef.current > 0);
+    setCanRedo(indexRef.current < historyRef.current.length - 1);
+  };
+
+  const pushToHistory = useCallback((currentNodes: Node[], currentEdges: Edge[]) => {
+    const history = historyRef.current.slice(0, indexRef.current + 1);
+    
+    if (history.length > 0) {
+      const last = history[history.length - 1];
+      if (
+        JSON.stringify(last.nodes) === JSON.stringify(currentNodes) &&
+        JSON.stringify(last.edges) === JSON.stringify(currentEdges)
+      ) {
+        return;
+      }
+    }
+
+    historyRef.current = [...history, { nodes: JSON.parse(JSON.stringify(currentNodes)), edges: JSON.parse(JSON.stringify(currentEdges)) }];
+    indexRef.current = historyRef.current.length - 1;
+    updateUndoRedoStates();
+  }, []);
+
+  const undo = useCallback(() => {
+    if (indexRef.current > 0) {
+      indexRef.current -= 1;
+      const { nodes: prevNodes, edges: prevEdges } = historyRef.current[indexRef.current];
+      setNodes(JSON.parse(JSON.stringify(prevNodes)));
+      setEdges(JSON.parse(JSON.stringify(prevEdges)));
+      localStorage.setItem('saved_nodes', JSON.stringify(prevNodes));
+      localStorage.setItem('saved_edges', JSON.stringify(prevEdges));
+      updateUndoRedoStates();
+    }
+  }, []);
+
+  const redo = useCallback(() => {
+    if (indexRef.current < historyRef.current.length - 1) {
+      indexRef.current += 1;
+      const { nodes: nextNodes, edges: nextEdges } = historyRef.current[indexRef.current];
+      setNodes(JSON.parse(JSON.stringify(nextNodes)));
+      setEdges(JSON.parse(JSON.stringify(nextEdges)));
+      localStorage.setItem('saved_nodes', JSON.stringify(nextNodes));
+      localStorage.setItem('saved_edges', JSON.stringify(nextEdges));
+      updateUndoRedoStates();
+    }
+  }, []);
+
+  // Keyboard Shortcuts Hook
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        undo();
+      } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        redo();
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
+
+  // Load Saved Workspace on Mount
+  useEffect(() => {
+    const savedGraphData = localStorage.getItem('saved_graph_data');
+    const savedNodes = localStorage.getItem('saved_nodes');
+    const savedEdges = localStorage.getItem('saved_edges');
+    const savedPrompt = localStorage.getItem('saved_prompt');
+    
+    if (savedGraphData && savedNodes && savedEdges) {
+      try {
+        const parsedGraphData = JSON.parse(savedGraphData);
+        const parsedNodes = JSON.parse(savedNodes);
+        const parsedEdges = JSON.parse(savedEdges);
+        
+        setGraphData(parsedGraphData);
+        setNodes(parsedNodes);
+        setEdges(parsedEdges);
+        if (savedPrompt) setPrompt(savedPrompt);
+        
+        // Setup initial history entry
+        historyRef.current = [{ nodes: parsedNodes, edges: parsedEdges }];
+        indexRef.current = 0;
+        setCanUndo(false);
+        setCanRedo(false);
+        setIsSidebarOpen(true);
+      } catch (e) {
+        console.error("Failed to load saved graph:", e);
+      }
+    }
+  }, []);
+
+  // Callbacks for ReactFlow drag & delete changes
+  const onNodeDragStop = useCallback((event: React.MouseEvent, node: Node, nds: Node[]) => {
+    pushToHistory(nds, edges);
+    localStorage.setItem('saved_nodes', JSON.stringify(nds));
+  }, [edges, pushToHistory]);
+
+  const onNodesDelete = useCallback((deletedNodes: Node[]) => {
+    setTimeout(() => {
+      const currentNodes = getNodes();
+      pushToHistory(currentNodes, edges);
+      localStorage.setItem('saved_nodes', JSON.stringify(currentNodes));
+    }, 0);
+  }, [edges, getNodes, pushToHistory]);
+
   const nodeTypes = useMemo(() => ({ default: CustomNode, input: CustomNode, output: CustomNode }), []);
   const onNodesChange: OnNodesChange = useCallback((changes) => setNodes((nds) => applyNodeChanges(changes, nds)), []);
   const onEdgesChange: OnEdgesChange = useCallback((changes) => setEdges((eds) => applyEdgeChanges(changes, eds)), []);
@@ -268,6 +385,13 @@ function EditorContent({ onBack }: EditorProps) {
       const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(rawNodes, rawEdges);
       setNodes(layoutedNodes);
       setEdges(layoutedEdges);
+      pushToHistory(layoutedNodes, layoutedEdges);
+      
+      localStorage.setItem('saved_graph_data', JSON.stringify(data));
+      localStorage.setItem('saved_nodes', JSON.stringify(layoutedNodes));
+      localStorage.setItem('saved_edges', JSON.stringify(layoutedEdges));
+      localStorage.setItem('saved_prompt', text);
+      
       setIsSidebarOpen(true); 
 
     } catch (err) {
@@ -393,7 +517,28 @@ function EditorContent({ onBack }: EditorProps) {
             </button>
           </div>
           
-          <div className="flex gap-4 pointer-events-auto">
+          <div className="flex gap-4 pointer-events-auto items-center">
+             {nodes.length > 0 && (
+              <div className="flex gap-2">
+                <button 
+                  onClick={undo} 
+                  disabled={!canUndo} 
+                  className={`p-1.5 rounded-full bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-white/5 transition-all cursor-pointer ${!canUndo ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 shadow-sm'}`}
+                  title="Undo (Ctrl+Z)"
+                >
+                  <Undo size={14} />
+                </button>
+                <button 
+                  onClick={redo} 
+                  disabled={!canRedo} 
+                  className={`p-1.5 rounded-full bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-white/5 transition-all cursor-pointer ${!canRedo ? 'opacity-30 cursor-not-allowed text-slate-400' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 shadow-sm'}`}
+                  title="Redo (Ctrl+Shift+Z)"
+                >
+                  <Redo size={14} />
+                </button>
+              </div>
+             )}
+
              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-white/10 text-xs font-mono text-emerald-600 dark:text-emerald-400 shadow-lg">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"/> ONLINE
              </div>
@@ -415,7 +560,17 @@ function EditorContent({ onBack }: EditorProps) {
 
         {/* MAIN GRAPH AREA */}
         <div className="flex-1 w-full h-full">
-            <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} fitView minZoom={0.1}>
+            <ReactFlow 
+                nodes={nodes} 
+                edges={edges} 
+                nodeTypes={nodeTypes} 
+                onNodesChange={onNodesChange} 
+                onEdgesChange={onEdgesChange} 
+                onNodeDragStop={onNodeDragStop}
+                onNodesDelete={onNodesDelete}
+                fitView 
+                minZoom={0.1}
+            >
                 <Background color="#94a3b8" gap={40} size={1} variant={BackgroundVariant.Dots} className="opacity-[0.1]" />
                 <Controls /> 
                 <MiniMap className="!bg-white/80 dark:!bg-slate-900/80 !backdrop-blur-md !border-slate-200 dark:!border-slate-800 rounded-lg" nodeColor="#3b82f6" maskColor="rgba(15, 23, 42, 0.6)" />
