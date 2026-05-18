@@ -23,7 +23,9 @@ import {
   RefreshCw,
   Send,
   Share2, Terminal,
-  Zap
+  Zap,
+  Sun,
+  Moon
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactFlow, {
@@ -43,6 +45,7 @@ import CustomNode from '../components/CustomNode';
 import { getLayoutedElements } from '../utils/layout';
 import HolographicScene from './HolographicScene';
 import LoadingCore from './LoadingCore';
+import { useTheme } from '../context/ThemeContext';
 
 interface EditorProps { onBack: () => void; }
 
@@ -192,6 +195,7 @@ const ZeroState = ({ onSelect }: { onSelect: (text: string) => void }) => {
 };
 
 function EditorContent({ onBack }: EditorProps) {
+  const { theme, toggleTheme } = useTheme();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -357,7 +361,7 @@ function EditorContent({ onBack }: EditorProps) {
   const showBackground = nodes.length === 0;
 
   return (
-    <div className="relative flex h-screen w-screen bg-black overflow-hidden font-sans text-slate-200">
+    <div className="relative flex h-screen w-screen bg-slate-50 dark:bg-black overflow-hidden font-sans text-slate-800 dark:text-slate-200 transition-colors duration-300">
       
       {/* 0. INJECT CSS FOR CONTROLS */}
       <style>{glassControlsStyle}</style>
@@ -367,7 +371,7 @@ function EditorContent({ onBack }: EditorProps) {
           <HolographicScene />
       </div>
 
-      <div className="absolute inset-0 bg-slate-950/20 pointer-events-none z-0" />
+      <div className="absolute inset-0 bg-slate-100/50 dark:bg-slate-950/20 pointer-events-none z-0" />
       {loading && <LoadingCore />}
 
       {/* 4. MAIN UI LAYER */}
@@ -375,19 +379,29 @@ function EditorContent({ onBack }: EditorProps) {
         
         {/* TOP BAR */}
         <div className="absolute top-0 left-0 w-full p-6 z-40 flex justify-between items-center pointer-events-none">
-          <button onClick={onBack} className="pointer-events-auto flex items-center gap-2 text-slate-400 hover:text-white transition-colors px-4 py-2 rounded-full hover:bg-white/10 backdrop-blur-md border border-white/5 hover:border-white/20">
-            <ArrowLeft className="w-4 h-4" /> <span className="font-mono text-xs tracking-widest">TERMINAL</span>
-          </button>
+          <div className="flex gap-3 pointer-events-auto">
+            <button onClick={onBack} className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors px-4 py-2 rounded-full bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-white/5 hover:border-slate-400 dark:hover:border-white/20 cursor-pointer">
+              <ArrowLeft className="w-4 h-4" /> <span className="font-mono text-xs tracking-widest">TERMINAL</span>
+            </button>
+            
+            <button 
+              onClick={toggleTheme} 
+              className="p-2 rounded-full bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all cursor-pointer"
+              title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {theme === 'dark' ? <Sun size={16} className="text-yellow-500" /> : <Moon size={16} className="text-indigo-600" />}
+            </button>
+          </div>
           
           <div className="flex gap-4 pointer-events-auto">
-             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/60 backdrop-blur-md border border-white/10 text-xs font-mono text-emerald-400 shadow-lg">
+             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200 dark:border-white/10 text-xs font-mono text-emerald-600 dark:text-emerald-400 shadow-lg">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"/> ONLINE
              </div>
              
              {graphData && (
                  <button 
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/80 backdrop-blur-md border border-white/10 text-xs text-slate-300 hover:bg-blue-600 hover:text-white transition-all shadow-lg"
+                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300 hover:bg-blue-600 dark:hover:bg-blue-500 hover:text-white dark:hover:text-white transition-all shadow-lg cursor-pointer"
                  >
                     {isSidebarOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
                     {isSidebarOpen ? 'CLOSE PANEL' : 'OPEN PANEL'}
@@ -404,26 +418,26 @@ function EditorContent({ onBack }: EditorProps) {
             <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} fitView minZoom={0.1}>
                 <Background color="#94a3b8" gap={40} size={1} variant={BackgroundVariant.Dots} className="opacity-[0.1]" />
                 <Controls /> 
-                <MiniMap className="!bg-slate-900/80 !backdrop-blur-md !border-slate-800 rounded-lg" nodeColor="#3b82f6" maskColor="rgba(15, 23, 42, 0.6)" />
+                <MiniMap className="!bg-white/80 dark:!bg-slate-900/80 !backdrop-blur-md !border-slate-200 dark:!border-slate-800 rounded-lg" nodeColor="#3b82f6" maskColor="rgba(15, 23, 42, 0.6)" />
             </ReactFlow>
         </div>
 
         {/* INPUT BAR */}
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[600px] z-50">
-            <form onSubmit={(e) => { e.preventDefault(); generateGraph(prompt); }} className="relative group flex items-center gap-3 p-2 pl-4 rounded-full border border-white/10 bg-black/60 backdrop-blur-xl shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-                <Terminal size={18} className="text-blue-400" />
-                <input type="text" placeholder="Describe a system..." value={prompt} onChange={(e) => setPrompt(e.target.value)} className="flex-1 bg-transparent text-white placeholder-slate-500 text-sm font-medium outline-none font-mono"/>
+            <form onSubmit={(e) => { e.preventDefault(); generateGraph(prompt); }} className="relative group flex items-center gap-3 p-2 pl-4 rounded-full border border-slate-300 dark:border-white/10 bg-white/90 dark:bg-black/60 backdrop-blur-xl shadow-[0_0_40px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
+                <Terminal size={18} className="text-blue-600 dark:text-blue-400" />
+                <input type="text" placeholder="Describe a system..." value={prompt} onChange={(e) => setPrompt(e.target.value)} className="flex-1 bg-transparent text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm font-medium outline-none font-mono"/>
                 
                 <input type="file" ref={fileInputRef} className="hidden" accept=".txt,.json,.js,.py" onChange={handleFileUpload} />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors" title="Upload Problem File">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer" title="Upload Problem File">
                     <Paperclip size={18} />
                 </button>
 
-                <button type="button" onClick={startListening} className={`p-2 rounded-full transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}>
+                <button type="button" onClick={startListening} className={`p-2 rounded-full transition-all cursor-pointer ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'}`}>
                     <Mic size={18} />
                 </button>
 
-                <button type="submit" disabled={loading} className="px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs tracking-widest transition-all shadow-lg shadow-blue-500/20">
+                <button type="submit" disabled={loading} className="px-6 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs tracking-widest transition-all shadow-lg shadow-blue-500/20 cursor-pointer">
                     {loading ? <span className="animate-pulse">PROCESSING</span> : "GENERATE"}
                 </button>
             </form>
@@ -432,47 +446,47 @@ function EditorContent({ onBack }: EditorProps) {
 
       {/* RIGHT: SLIDING SIDEBAR */}
       <div 
-        className={`border-l border-white/10 bg-slate-900/60 backdrop-blur-2xl flex flex-col shadow-2xl z-40 transition-all duration-500 ease-in-out overflow-hidden`}
+        className={`border-l border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/60 backdrop-blur-2xl flex flex-col shadow-2xl z-40 transition-all duration-500 ease-in-out overflow-hidden`}
         style={{ width: isSidebarOpen && graphData ? '450px' : '0px', opacity: isSidebarOpen && graphData ? 1 : 0 }}
       >
         {graphData && (
             <>
-            <div className="p-6 border-b border-white/10 bg-slate-900/40 flex justify-between items-start min-w-[450px]">
+            <div className="p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900/40 flex justify-between items-start min-w-[450px]">
                 <div>
-                   <div className="flex items-center gap-2 mb-2 text-xs font-bold tracking-widest text-blue-500 uppercase"><Layers size={12} /> Analysis Complete</div>
-                   <h2 className="text-xl font-bold text-white leading-tight">{graphData.title}</h2>
+                   <div className="flex items-center gap-2 mb-2 text-xs font-bold tracking-widest text-blue-600 dark:text-blue-500 uppercase"><Layers size={12} /> Analysis Complete</div>
+                   <h2 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">{graphData.title}</h2>
                 </div>
-                <button onClick={handleExport} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Export Image">
+                <button onClick={handleExport} className="p-2 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer" title="Export Image">
                     <Download size={18} />
                 </button>
             </div>
 
-            <div className="flex border-b border-white/10 min-w-[450px]">
-                <button onClick={() => setActiveTab('ANALYSIS')} className={`flex-1 py-3 text-xs font-bold tracking-wider hover:bg-white/5 transition-colors ${activeTab === 'ANALYSIS' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-slate-500'}`}>ANALYSIS</button>
-                <button onClick={() => setActiveTab('CODE')} className={`flex-1 py-3 text-xs font-bold tracking-wider hover:bg-white/5 transition-colors flex items-center justify-center gap-2 ${activeTab === 'CODE' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-slate-500'}`}><Code size={14} /> CODE</button>
-                <button onClick={() => setActiveTab('CHAT')} className={`flex-1 py-3 text-xs font-bold tracking-wider hover:bg-white/5 transition-colors flex items-center justify-center gap-2 ${activeTab === 'CHAT' ? 'text-purple-400 border-b-2 border-purple-400' : 'text-slate-500'}`}><MessageSquare size={14} /> AI TUTOR</button>
+            <div className="flex border-b border-slate-200 dark:border-white/10 min-w-[450px]">
+                <button onClick={() => setActiveTab('ANALYSIS')} className={`flex-1 py-3 text-xs font-bold tracking-wider hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer ${activeTab === 'ANALYSIS' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-slate-400 dark:text-slate-500'}`}>ANALYSIS</button>
+                <button onClick={() => setActiveTab('CODE')} className={`flex-1 py-3 text-xs font-bold tracking-wider hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-center gap-2 ${activeTab === 'CODE' ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}><Code size={14} /> CODE</button>
+                <button onClick={() => setActiveTab('CHAT')} className={`flex-1 py-3 text-xs font-bold tracking-wider hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-center gap-2 ${activeTab === 'CHAT' ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400' : 'text-slate-400 dark:text-slate-500'}`}><MessageSquare size={14} /> AI TUTOR</button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 min-w-[450px]">
                 {activeTab === 'ANALYSIS' && (
                   <>
-                    <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                        <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-white"><Activity size={16} className="text-emerald-400" /> Executive Summary</div>
-                        <p className="text-sm text-slate-300 leading-relaxed">{graphData.summary}</p>
+                    <div className="p-4 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
+                        <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-slate-800 dark:text-white"><Activity size={16} className="text-emerald-500 dark:text-emerald-400" /> Executive Summary</div>
+                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{graphData.summary}</p>
                     </div>
                     <div>
-                        <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-white border-b border-white/5 pb-2"><BookOpen size={16} className="text-purple-400" /> System Logic</div>
-                        <div className="text-sm text-slate-400 leading-relaxed space-y-4">{graphData.explanation}</div>
+                        <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-slate-800 dark:text-white border-b border-slate-200 dark:border-white/5 pb-2"><BookOpen size={16} className="text-purple-500 dark:text-purple-400" /> System Logic</div>
+                        <div className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed space-y-4">{graphData.explanation}</div>
                     </div>
-                    <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40">
-                        <div className="px-4 py-2 bg-white/5 border-b border-white/5 flex justify-between items-center">
-                            <span className="text-xs font-mono text-slate-500">EXECUTION TRACE</span>
-                            <PlayCircle size={14} className="text-emerald-500" />
+                    <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 bg-slate-100/50 dark:bg-black/40">
+                        <div className="px-4 py-2 bg-slate-200/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/5 flex justify-between items-center">
+                            <span className="text-xs font-mono text-slate-400 dark:text-slate-500">EXECUTION TRACE</span>
+                            <PlayCircle size={14} className="text-emerald-600 dark:text-emerald-500" />
                         </div>
                         <div className="p-4 font-mono text-xs space-y-3">
-                            <div className="flex gap-4"><span className="text-slate-600">INPUT</span><span className="text-emerald-400 tracking-widest">{graphData.example_input}</span></div>
-                            <div className="h-px bg-white/10 w-full" />
-                            <p className="text-slate-400 leading-6">{graphData.execution_trace}</p>
+                            <div className="flex gap-4"><span className="text-slate-400 dark:text-slate-600">INPUT</span><span className="text-emerald-600 dark:text-emerald-400 tracking-widest">{graphData.example_input}</span></div>
+                            <div className="h-px bg-slate-200 dark:bg-white/10 w-full" />
+                            <p className="text-slate-600 dark:text-slate-400 leading-6">{graphData.execution_trace}</p>
                         </div>
                     </div>
                   </>
@@ -483,7 +497,7 @@ function EditorContent({ onBack }: EditorProps) {
                     <div className="flex justify-between items-center mb-4">
                       <div className="relative flex gap-2">
                         <div className="">
-                        <button className={`flex items-center gap-2 text-xs font-bold text-white bg-slate-800 px-3 py-1.5 rounded-lg border border-white/10 hover:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all ${isRegeneratingCode? 'opacity-50':'opacity-100'}`}
+                        <button className={`flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 hover:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all cursor-pointer ${isRegeneratingCode? 'opacity-50':'opacity-100'}`}
                           onClick={() => setshowLanguageDropDown(p => !p)}
                           disabled={isRegeneratingCode}
                         >
@@ -497,12 +511,12 @@ function EditorContent({ onBack }: EditorProps) {
                               onClick={() => setshowLanguageDropDown(false)} 
                             />
                             
-                            <div className="absolute top-full left-0 mt-2 w-32 bg-slate-900 border border-slate-700 rounded-lg shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute top-full left-0 mt-2 w-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
                               {['Python', 'JavaScript', 'C++', 'Java'].map(lang => (
                                 <button 
                                   key={lang} 
                                   onClick={() => handleLanguageChange(lang)} 
-                                  className="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-blue-600 hover:text-white transition-colors first:border-b-0"
+                                  className="w-full text-left px-4 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors first:border-b-0 cursor-pointer"
                                 >
                                       {lang}
                                   </button>
@@ -512,7 +526,7 @@ function EditorContent({ onBack }: EditorProps) {
                         )}
                       </div>
                             <button
-                              className={`flex items-center gap-2 text-xs font-bold text-white bg-slate-800 px-3 py-1.5 rounded-lg border border-white/10 hover:border-blue-500/50 transition-colors ${isRegeneratingCode? 'opacity-50': 'opacity-100'}`}
+                              className={`flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/10 hover:border-blue-500/50 transition-colors cursor-pointer ${isRegeneratingCode? 'opacity-50': 'opacity-100'}`}
                               disabled={isRegeneratingCode}
                               onClick={() => regenerateCode(codeLanguage)}
                               aria-label="Regenerate code"
@@ -521,13 +535,13 @@ function EditorContent({ onBack }: EditorProps) {
                               <RefreshCw size={14}/>
                             </button>
                       </div>
-                      <button onClick={handleCopyCode} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold transition-colors">
+                      <button onClick={handleCopyCode} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold transition-colors cursor-pointer">
                         {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'COPIED' : 'COPY'}
                       </button>
                     </div>
-                    <div className="flex-1 rounded-xl bg-black/50 border border-white/10 p-4 overflow-x-auto relative">
+                    <div className="flex-1 rounded-xl bg-slate-100/80 dark:bg-black/50 border border-slate-200 dark:border-white/10 p-4 overflow-x-auto relative">
                         {isRegeneratingCode && <div className="absolute inset-0 bg-black/80 flex items-center justify-center text-blue-400 text-xs font-bold animate-pulse z-10">REWRITING...</div>}
-                      <pre className="font-mono text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{graphData.code_snippet}</pre>
+                      <pre className="font-mono text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{graphData.code_snippet}</pre>
                     </div>
                   </div>
                 )}
@@ -536,39 +550,39 @@ function EditorContent({ onBack }: EditorProps) {
                     <div className="h-full flex flex-col">
                         <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                             {chatHistory.length === 0 && (
-                                <div className="text-center text-slate-500 mt-10 text-sm">
+                                <div className="text-center text-slate-400 dark:text-slate-500 mt-10 text-sm">
                                     <MessageSquare size={32} className="mx-auto mb-2 opacity-50" />
                                     <p>Ask me anything about this graph!</p>
                                 </div>
                             )}
                             {chatHistory.map((msg, i) => (
                                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[85%] p-3 rounded-xl text-xs leading-relaxed ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 border border-white/10 rounded-bl-none'}`}>
+                                    <div className={`max-w-[85%] p-3 rounded-xl text-xs leading-relaxed ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/10 rounded-bl-none'}`}>
                                         {msg.text}
                                     </div>
                                 </div>
                             ))}
                             {isChatting && (
                                 <div className="flex justify-start">
-                                    <div className="bg-slate-800 p-3 rounded-xl rounded-bl-none border border-white/10">
+                                    <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl rounded-bl-none border border-slate-250 dark:border-white/10">
                                         <div className="flex gap-1">
-                                            <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" />
-                                            <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce delay-100" />
-                                            <div className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce delay-200" />
+                                            <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce" />
+                                            <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce delay-100" />
+                                            <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce delay-200" />
                                         </div>
                                     </div>
                                 </div>
                             )}
                         </div>
-                        <form onSubmit={handleChatSubmit} className="mt-4 pt-4 border-t border-white/10 relative">
+                        <form onSubmit={handleChatSubmit} className="mt-4 pt-4 border-t border-slate-200 dark:border-white/10 relative">
                             <input 
                                 type="text" 
                                 placeholder="Type your question..." 
                                 value={chatInput}
                                 onChange={(e) => setChatInput(e.target.value)}
-                                className="w-full bg-slate-900/50 border border-white/10 rounded-lg pl-4 pr-10 py-3 text-xs text-white focus:border-blue-500 outline-none"
+                                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-350 dark:border-white/10 rounded-lg pl-4 pr-10 py-3 text-xs text-slate-800 dark:text-white focus:border-blue-500 outline-none"
                             />
-                            <button type="submit" disabled={isChatting} className="absolute right-2 top-6 text-blue-400 hover:text-white transition-colors">
+                            <button type="submit" disabled={isChatting} className="absolute right-2 top-6 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-white transition-colors cursor-pointer">
                                 <Send size={16} />
                             </button>
                         </form>
@@ -576,11 +590,11 @@ function EditorContent({ onBack }: EditorProps) {
                 )}
             </div>
             
-            <div className="p-6 border-t border-white/10 bg-slate-900/40 min-w-[450px]">
-                <div className="text-xs font-bold text-slate-500 uppercase mb-4 tracking-wider">Pro Capabilities</div>
+            <div className="p-6 border-t border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-slate-900/40 min-w-[450px]">
+                <div className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase mb-4 tracking-wider">Pro Capabilities</div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-3 text-slate-400 hover:text-white transition-colors group"><div className="p-2 rounded-lg bg-white/5 group-hover:bg-blue-500/20"><Zap size={14} className="group-hover:text-blue-400" /></div><span className="text-xs font-medium">Real-time</span></div>
-                    <div className="flex items-center gap-3 text-slate-400 hover:text-white transition-colors group"><div className="p-2 rounded-lg bg-white/5 group-hover:bg-emerald-500/20"><Globe size={14} className="group-hover:text-emerald-400" /></div><span className="text-xs font-medium">Multi-Region</span></div>
+                    <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors group cursor-pointer"><div className="p-2 rounded-lg bg-slate-100 dark:bg-white/5 group-hover:bg-blue-500/20"><Zap size={14} className="group-hover:text-blue-600 dark:group-hover:text-blue-400" /></div><span className="text-xs font-medium">Real-time</span></div>
+                    <div className="flex items-center gap-3 text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors group cursor-pointer"><div className="p-2 rounded-lg bg-slate-100 dark:bg-white/5 group-hover:bg-emerald-500/20"><Globe size={14} className="group-hover:text-emerald-600 dark:group-hover:text-emerald-400" /></div><span className="text-xs font-medium">Multi-Region</span></div>
                 </div>
             </div>
             </>
